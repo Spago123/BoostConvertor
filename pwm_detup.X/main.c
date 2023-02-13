@@ -15,7 +15,7 @@
 #define calculate(num1, num2) (unsigned int)(((num1)<<8) + (num2)) 
 
 /*
- Max value for d is 104, which is equal to the duty-cycle of 100%
+ Max value for d is 408, which is equal to the duty-cycle of 100%
  */
 void initDutyCycle(unsigned int d){
     CCP2CONbits.DC2B0 = testBit(d, 0);
@@ -24,7 +24,7 @@ void initDutyCycle(unsigned int d){
 }
 
 /*
- The PWM freq is set to be 76.92 kHz
+ The PWM freq is set to be 4.9 kHz
  */
 void setupPWM(){
     TRISC = 0xFD;
@@ -32,11 +32,11 @@ void setupPWM(){
     
     CCP2CONbits.CCP2M2 = 1;
     CCP2CONbits.CCP2M3 = 1;
-    PR2 = 0x19;
-    T2CONbits.T2CKPS0 = 0;
+    PR2 = 0x65;
+    T2CONbits.T2CKPS0 = 1;
     T2CONbits.T2CKPS1 = 0;
     T2CONbits.TMR2ON = 1;
-    initDutyCycle(0);
+    initDutyCycle(0.5*408);
 }
 
 const unsigned char preload = 219;
@@ -112,7 +112,7 @@ void main(void) {
                 y = 1;
             }
         
-            initDutyCycle(y*104);
+            initDutyCycle(y*408);
             y1 = y;
             e1 = e;
             ready = 0;

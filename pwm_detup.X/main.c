@@ -1,10 +1,3 @@
-/*
- * Project: DC - DC voltage regulation using step - up boost converter
- * Author: Harun ?pago
- * Version: 1.0.    
- */
-
-
 #include <xc.h>
  
 #pragma config FOSC=HS,WDTE=OFF,PWRTE=OFF,MCLRE=ON,CPD=OFF
@@ -13,6 +6,31 @@
 
 #define testBit(number, bit) ((number) & (1<<bit))
 #define calculate(num1, num2) (unsigned int)(((num1)<<8) + (num2)) 
+
+unsigned char counter = 0, ready = 0;
+const unsigned char preload = 8;//157
+double voltage, vReff = 20.;
+const double koe = 0.053805;
+
+
+/*
+ Regulator parameters
+ */
+const long double a = 0.000102;
+double y, y1 = 0, e1 = 0, e;
+
+void initAnalog(){
+    TRISA = 0xFF;
+    ANSELA = 0xFF;
+    ADCON1bits.ADCS = 3;
+    ADCON1bits.ADNREF = 0;
+    ADCON1bits.ADPREF = 0;
+    ADCON1bits.ADFM = 1;
+    ADCON0bits.CHS = 0x00;
+    ADCON0bits.ADON = 1;
+    PIR1bits.ADIF = 0;
+    PIE1bits.ADIE = 1;
+}
 
 /*
  Max value for d is 408, which is equal to the duty-cycle of 100%
@@ -36,22 +54,9 @@ void setupPWM(){
     T2CONbits.T2CKPS0 = 1;
     T2CONbits.T2CKPS1 = 0;
     T2CONbits.TMR2ON = 1;
-    initDutyCycle(0.5*408);
+    initDutyCycle(0.5*408.);
 }
 
-unsigned char danger = 1, counter = 0, ready = 0;
-const unsigned char preload = 8;//157
-double voltage, vReff = 25.;
-const double koe = 0.048828;
-
-
-/*
- Regulator parameters
- */
-const long double a = 0.000102;
-double y, y1 = 0, e1 = 0, e;
-
-unsigned char ready = 0;
 
 void initTimer(){
     OPTION_REGbits.T0CS = 0;
@@ -65,13 +70,12 @@ void initTimer(){
 
 
 void __interrupt() function(){
-    if(INTCONbits.TMR0IE & INTCONbits.TMR0IF & danger){
+    if(INTCONbits.TMR0IE & INTCONbits.TMR0IF){
         INTCONbits.TMR0IF = 0;
-        // >100
+        TMR0 = preload;
+        
         if((++counter) > 10){
             counter = 0;
-            TMR0 = preload;
-            PORTD = ~PORTD;
             ADGO = 1;
         }
     }
@@ -84,23 +88,9 @@ void __interrupt() function(){
     }    
 }
 
-void initAnalog(){
-    TRISA = 0xFF;
-    ANSELA = 0xFF;
-    ADCON1bits.ADCS = 3;
-    ADCON1bits.ADNREF = 0;
-    ADCON1bits.ADPREF = 0;
-    ADCON1bits.ADFM = 1;
-    ADCON0bits.CHS = measurment;
-    ADCON0bits.ADON = 1;
-    PIR1bits.ADIF = 0;
-    PIE1bits.ADIE = 1;
-}
+
  
 void main(void) {
-    PORTB = 0x00;
-    ANSELB = 0x00;
-    TRISB = 0x00;
     setupPWM();
     initTimer();
     initAnalog();
@@ -112,7 +102,7 @@ void main(void) {
          */
         if(ready){
             e = vReff - voltage;
-            y = y1 + a2*e1 + a1*e;
+            y = y1 + a*e1;
             
             if(y<0){
                 y = 0;
@@ -120,14 +110,13 @@ void main(void) {
                 y = 1;
             }
         
-            initDutyCycle(y*408);
+            initDutyCycle((1.-y)*408.);
             y1 = y;
             e1 = e;
             ready = 0;
-            PORTB = ~PORTB;
         }
     }
+
+
     return;
 }
- 
-

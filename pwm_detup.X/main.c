@@ -39,41 +39,49 @@ void setupPWM(){
     initDutyCycle(0.5*408);
 }
 
-const unsigned char preload = 219;
-unsigned char measurment = 0x00, reff = 0x01;
+unsigned char danger = 1, counter = 0, ready = 0;
+const unsigned char preload = 8;//157
+double voltage, vReff = 25.;
+const double koe = 0.048828;
 
-double voltage, vReff = 30.;
 
-const double koe = 0.0390625;
 /*
  Regulator parameters
  */
-const double a1 = 0.002, a2 = -0.00165;
-double y1 = 0, e1 = 0, e, y;
+const long double a = 0.000102;
+double y, y1 = 0, e1 = 0, e;
 
 unsigned char ready = 0;
+
+void initTimer(){
+    OPTION_REGbits.T0CS = 0;
+    OPTION_REGbits.PSA = 0;
+    OPTION_REGbits.PS = 3;
+    TMR0 = preload;
+    INTCONbits.TMR0IF = 0;
+    INTCONbits.TMR0IE = 1;
+}    
+
+
+
 void __interrupt() function(){
-    if(INTCONbits.TMR0IE & INTCONbits.TMR0IF){
-        INTCONbits.TMR0IF = 0;    
-        
-        TMR0 = preload;
-        ADCON0bits.ADGO = 1;      
+    if(INTCONbits.TMR0IE & INTCONbits.TMR0IF & danger){
+        INTCONbits.TMR0IF = 0;
+        // >100
+        if((++counter) > 10){
+            counter = 0;
+            TMR0 = preload;
+            PORTD = ~PORTD;
+            ADGO = 1;
+        }
     }
+    
     
     if(PIE1bits.ADIE & PIR1bits.ADIF){
         PIR1bits.ADIF = 0;
         voltage = koe*calculate(ADRESH, ADRESL);
         ready = 1;
-    }
-}
-
-void initTimer(){
-    OPTION_REGbits.T0CS = 0;
-    OPTION_REGbits.PSA = 0;
-    OPTION_REGbits.PS = 7;
-    TMR0 = preload;
-    INTCONbits.TMR0IF = 0;
-    INTCONbits.TMR0IE = 1;
+    }    
 }
 
 void initAnalog(){

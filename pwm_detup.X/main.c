@@ -5,10 +5,11 @@
 #define _XTAL_FREQ 8000000
 
 #define testBit(number, bit) ((number) & (1<<bit))
-#define calculate(num1, num2) (unsigned int)(((num1)<<8) + (num2)) 
+#define calculate(num1, num2) (unsigned int)(((num1)<<8) | (num2)) 
 
 unsigned char counter = 0, ready = 0;
 const unsigned char preload = 8;//157
+unsigned char measure = 0x00, measureVreff = 0x01;
 double voltage, vReff = 20.;
 const double koe = 0.053805;
 
@@ -19,6 +20,39 @@ const double koe = 0.053805;
 const long double a = 0.000102;
 double y, y1 = 0, e1 = 0, e;
 
+void initPorts () {
+ 
+  ANSELD = 0;
+  ANSELB = 0;
+  TRISD = 0;
+  TRISB = 0;
+  LATD = 0;
+  LATB = 0;
+ 
+}
+
+void BCD_decoder (double vReff) {
+
+  int number = (int)(vReff * 10);
+  unsigned char tens = 0, ones = 0, decimal = 0;
+
+  while (number >= 100) {
+    tens++;
+    number -= 100;
+  }
+
+  while (number >= 10) {
+    ones++;
+    number -= 10;
+  }
+
+  decimal = (unsigned char) number;
+
+  LATB = (tens << 4) | ones;
+  LATD = decimal;                            //RB3-RB0 za BCD
+}
+
+
 void initAnalog(){
     TRISA = 0xFF;
     ANSELA = 0xFF;
@@ -26,7 +60,7 @@ void initAnalog(){
     ADCON1bits.ADNREF = 0;
     ADCON1bits.ADPREF = 0;
     ADCON1bits.ADFM = 1;
-    ADCON0bits.CHS = 0x00;
+    ADCON0bits.CHS = measure;
     ADCON0bits.ADON = 1;
     PIR1bits.ADIF = 0;
     PIE1bits.ADIE = 1;
@@ -81,11 +115,19 @@ void __interrupt() function(){
     }
     
     
-    if(PIE1bits.ADIE & PIR1bits.ADIF){
+    if(PIE1bits.ADIE & PIR1bits.ADIF & (ADCON0bits.CHS == measure)){
         PIR1bits.ADIF = 0;
+        ADCON0bits.CHS = measureVreff;
         voltage = koe*calculate(ADRESH, ADRESL);
-        ready = 1;
+        ADGO = 1;
     }    
+    
+    if(PIE1bits.ADIE & PIR1bits.ADIF & (ADCON0bits.CHS == measureVreff)){
+        ADIF = 0;
+        ADCON0bits.CHS = measure;
+        vReff = 20 + 0.01953 * calculate(ADRESH, ADRESL);
+        ready = 1;
+    }
 }
 
 
@@ -94,6 +136,7 @@ void main(void) {
     setupPWM();
     initTimer();
     initAnalog();
+    initPorts ();
     INTCONbits.PEIE = 1;
     INTCONbits.GIE = 1;    
     while(1){
@@ -113,6 +156,7 @@ void main(void) {
             initDutyCycle((1.-y)*408.);
             y1 = y;
             e1 = e;
+            BCD_decoder(vReff);
             ready = 0;
         }
     }

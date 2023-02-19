@@ -5,10 +5,13 @@
 #define _XTAL_FREQ 8000000
 
 #define testBit(number, bit) ((number) & (1<<bit))
+/*
+ Makro that is being used to calculate the 10 - bit resolution for AD conversion
+*/
 #define calculate(num1, num2) (unsigned int)(((num1)<<8) | (num2)) 
 
 unsigned char counter = 0, ready = 0;
-const unsigned char preload = 8;//157
+const unsigned char preload = 8;
 unsigned char measure = 0x00, measureVreff = 0x01;
 double voltage, vReff = 20.;
 const double koe = 0.053805;
@@ -21,16 +24,16 @@ const long double a = 0.000102;
 double y, y1 = 0, e1 = 0, e;
 
 void initPorts () {
- 
   ANSELD = 0;
   ANSELB = 0;
   TRISD = 0;
   TRISB = 0;
   LATD = 0;
   LATB = 0;
- 
 }
-
+/*
+ Function that is being used to print three numbers, using 74LS47 to three 7 segment display
+*/
 void BCD_decoder (double vReff) {
 
   int number = (int)(vReff * 10);
@@ -49,7 +52,7 @@ void BCD_decoder (double vReff) {
   decimal = (unsigned char) number;
 
   LATB = (tens << 4) | ones;
-  LATD = decimal;                            //RB3-RB0 za BCD
+  LATD = decimal;                        
 }
 
 
@@ -91,7 +94,9 @@ void setupPWM(){
     initDutyCycle(0.5*408.);
 }
 
-
+/*
+ The timer is set to overflow every 0.02 s, which is equal to the sempling time
+*/
 void initTimer(){
     OPTION_REGbits.T0CS = 0;
     OPTION_REGbits.PSA = 0;
@@ -100,8 +105,6 @@ void initTimer(){
     INTCONbits.TMR0IF = 0;
     INTCONbits.TMR0IE = 1;
 }    
-
-
 
 void __interrupt() function(){
     if(INTCONbits.TMR0IE & INTCONbits.TMR0IF){
@@ -113,15 +116,18 @@ void __interrupt() function(){
             ADGO = 1;
         }
     }
-    
-    
+    /*
+     Calculating the output voltage
+    */
     if(PIE1bits.ADIE & PIR1bits.ADIF & (ADCON0bits.CHS == measure)){
         PIR1bits.ADIF = 0;
         ADCON0bits.CHS = measureVreff;
         voltage = koe*calculate(ADRESH, ADRESL);
         ADGO = 1;
     }    
-    
+    /*
+     Calculating the referent voltage
+    */
     if(PIE1bits.ADIE & PIR1bits.ADIF & (ADCON0bits.CHS == measureVreff)){
         ADIF = 0;
         ADCON0bits.CHS = measure;
@@ -130,8 +136,6 @@ void __interrupt() function(){
     }
 }
 
-
- 
 void main(void) {
     setupPWM();
     initTimer();
@@ -141,7 +145,7 @@ void main(void) {
     INTCONbits.GIE = 1;    
     while(1){
         /*
-         Regulator implementation
+         Regulator implementation and printing voltage reff
          */
         if(ready){
             e = vReff - voltage;

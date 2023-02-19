@@ -91,7 +91,7 @@ void setupPWM(){
     T2CONbits.T2CKPS0 = 1;
     T2CONbits.T2CKPS1 = 0;
     T2CONbits.TMR2ON = 1;
-    initDutyCycle(0.5*408.);
+    initDutyCycle(0);
 }
 
 /*
